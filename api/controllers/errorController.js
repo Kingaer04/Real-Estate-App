@@ -1,15 +1,21 @@
-const httpStatusCode = require("http-status-codes")
+// import httpStatusCode from "http-status-codes"
 
-module.exports = {
-    pageNotFound: (req, res) => {
-        let errorCode = httpStatusCode.NOT_FOUND
-        res.status(errorCode)
-        res.send(`${errorCode} || NOT FOUND`)
-    },
-    internalServerError: (error, req, res, next) =>  {
-        let errorCode = httpStatusCode.INTERNAL_SERVER_ERROR
-        res.status(errorCode)
-        console.log(error.message)
-        res.send(`${errorCode} || Page sleeping`)
-    }
-}
+// export default  errorController = {
+//     pageNotFound: (req, res) => {
+//         let errorCode = httpStatusCode.NOT_FOUND
+//         return res.status(errorCode).json({
+//             success: false,
+//             errorCode,
+//             message,
+//         })
+//     },
+//     internalServerError: (error, req, res, next) =>  {
+//         const errorCode = httpStatusCode.INTERNAL_SERVER_ERROR
+//         const message = error.message || 'Internal Server Error'
+//         return res.status(errorCode).json({
+//             success: false,
+//             errorCode,
+//             message,
+//         })
+//     }
+// }

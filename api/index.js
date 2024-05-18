@@ -50,7 +50,15 @@ db.once("open", () => {
 
 app.set('port', process.env.PORT || 3000)
 
-app.use('/', userRoute)
+app.use('/', router)
+app.use((error, req, res, next) =>  {
+    const errorCode = error.errorCode || 500
+    const message = error.message || 'Internal Server Error'
+    return res.status(errorCode).json({
+        success: false,
+        errorCode,
+        message,
+})})
 
 app.listen(app.get('port'), () => {
     console.log(`Server is running on https://localhost/${app.get('port')}`)
