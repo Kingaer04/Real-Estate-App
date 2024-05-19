@@ -18,15 +18,8 @@ export const userController = {
         let newUser = new user(getUserParams(req.body));
         user.register(newUser, req.body.password, (error, user) => {
             if (user) {
-                req.flash("success", `${user.userName}'s account created successfully!`);
                 res.status(201).json({
                     message: 'User created successfully',
-                    // user: {
-                    //     id: user._id,
-                    //     userName: user.userName,
-                    //     email: user.email,
-                    //     // Add other user fields as necessary
-                    // }
                 });
             } else {
                 req.flash("error", `Failed to create user account because: ${error.message}.`);
@@ -38,10 +31,30 @@ export const userController = {
             }
         });
     },
-    authenticate: passport.authenticate("local", {
-        failureRedirect: "user/signUp",
-        failureFlash:"Failed to login",
-        successRedirect: "/",
-        successFlash: "Logged in!"
-    })
+    authenticate: (req, res, next) => {
+        passport.authenticate('local', (err, user, info) => {
+            if (err) {
+                return res.status(500).json({ message: 'Internal Server Error', error: err.message });
+            }
+            if (!user) {
+                return res.status(401).json({ message: 'Authentication failed', error: info.message });
+            }
+            req.logIn(user, (err) => {
+                if (err) {
+                    return res.status(500).json({ message: 'Internal Server Error', error: err.message });
+                }
+                req.session.user = {
+                    id: user._id,
+                    userName: user.userName,
+                    email: user.email
+                };
+
+                return res.status(200).json({
+                    message: 'Logged in successfully',
+                    user: { id: user._id, userName: user.userName, email: user.email }
+                });
+            });
+            
+        })(req, res, next);
+    }
 }

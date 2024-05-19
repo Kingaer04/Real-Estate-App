@@ -4,7 +4,7 @@ import layouts from "express-ejs-layouts"
 import dotenv from 'dotenv'
 import router from './routes/index.js'
 import userRoute from './routes/userRoute.js'
-import expressSession from "express-session" // for cookie session
+import session from "express-session" // for cookie session
 import cookieParser from "cookie-parser"
 import connectFlash from "connect-flash" // for the flash message
 import passport from 'passport'
@@ -16,15 +16,16 @@ dotenv.config()
 const app = express()
 
 app.use(cookieParser("secret_passcode"))
-app.use(expressSession({
+app.use(session({
     secret: "secret_passcode",
-    cookie: {
-        maxAge: null
-    },
     resave: false,
-    saveUninitialized: false
-}))
-app.use(connectFlash())
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,  // Ensure the cookie is httpOnly for security
+        secure: process.env.NODE_ENV === 'production',  // Use secure cookies in production
+        maxAge: 3600000  // 1 hour
+    }
+}));app.use(connectFlash())
 app.use((req,res, next) =>{
     res.locals.flashMessages = req.flash()
     res.locals.user = req.user
