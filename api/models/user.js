@@ -11,7 +11,11 @@ const userSchemma = new mongoose.Schema({
         type: String,
         required: true,
         unique: true
-    }
+    },
+    avatar: {
+        type: String,
+        default: "https://www.pngall.com/wp-content/uploads/5/User-Profile-PNG-Free-Download.png"
+    } 
 }, {timestamps: true})
 
 userSchemma.plugin(passportLocalMoongoose, {
