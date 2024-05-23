@@ -52,7 +52,7 @@ export const userController = {
 
                 return res.status(200).json({
                     message: 'Logged in successfully',
-                    user: { id: user._id, userName: user.userName, email: user.email }
+                    user: { id: user._id, userName: user.userName, email: user.email, avatar: user.avatar }
                 });
             });
             
@@ -72,7 +72,7 @@ export const userController = {
                     };
                     return res.status(200).json({
                         message: 'Logged in successfully',
-                        user: { id: user._id, userName: user.userName, email: user.email }
+                        user: { id: user._id, userName: user.userName, email: user.email, avatar: user.avatar }
                     });
                 });
             } else {
