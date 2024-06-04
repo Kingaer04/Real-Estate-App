@@ -1,11 +1,13 @@
 import User from '../models/user.js'
 import passport from 'passport'
 import asyncHandler from 'express-async-handler'
+import jwt from 'jsonwebtoken'
 
 function getUserParams(body) {
     return {
         userName:  body.userName,
         email: body.email,
+        avatar: body.avatar
     }
 }
 
@@ -23,7 +25,6 @@ export const userController = {
                     message: 'User created successfully',
                 });
             } else {
-                req.flash("error", `Failed to create user account because: ${error.message}.`);
                 res.status(400).json({
                     error: `Failed to create user account`,
                     message: error.message
@@ -44,16 +45,9 @@ export const userController = {
                 if (err) {
                     return res.status(500).json({ message: 'Internal Server Error', error: err.message });
                 }
-                req.session.user = {
-                    id: user._id,
-                    userName: user.userName,
-                    email: user.email
-                };
-
-                return res.status(200).json({
-                    message: 'Logged in successfully',
-                    user: { id: user._id, userName: user.userName, email: user.email, avatar: user.avatar }
-                });
+                const token = jwt.sign({id:user._id}, process.env.JWT_SECRET)
+                const {hash: has, salt:sal, ...rest} = user._doc
+                res.cookie('token', token, {httpOnly: true}).status(200).json(rest)      
             });
             
         })(req, res, next);
@@ -64,16 +58,9 @@ export const userController = {
             const user = await User.findOne({ email });
             if (user) {
                 req.login(user, (err) => {
-                    if (err) return next(err);
-                    req.session.user = {
-                        id: user._id,
-                        userName: user.userName,
-                        email: user.email
-                    };
-                    return res.status(200).json({
-                        message: 'Logged in successfully',
-                        user: { id: user._id, userName: user.userName, email: user.email, avatar: user.avatar }
-                    });
+                    const token = jwt.sign({id: user.id}, process.env.JWT_SECRET, {httpOnly: true})
+                    const{hash: has, salt: sal, ...rest} = user._doc
+                    res.cookie('token', token, {httpOnly: true}).status(200).json(rest)
                 });
             } else {
                 if (req.skip) return next();
@@ -86,7 +73,6 @@ export const userController = {
                             message: 'User created successfully'
                         });
                     } else {
-                        req.flash("error", `Failed to create user account because: ${error.message}.`);
                         res.status(400).json({
                             error: `Failed to create user account`,
                             message: error.message
@@ -99,5 +85,28 @@ export const userController = {
             console.error('Error in auth middleware:', error);
             next(error);
         }
-    })
+    }),
+    verifyToken: (req, res, next) => {
+        const token = req.cookies.token
+
+        if(!token) return next(res.status(401).json({message: 'Unauthorized'}))
+
+        jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+            if (err) return next(res.status(403).json({message:'forbidden'}))
+            
+            req.user = user
+            next()
+        })
+    },
+    update: async (req, res, next) => {
+        if(req.user.id !== req.params.id) return (res.status(401).json({message: `Unauthorized! you can only update your account${req.user.id}`}))
+        try {
+            const updatedUser = await User.findByIdAndUpdate(req.user.id, 
+                {$set: getUserParams(req.body)}, { new: true });
+            await updatedUser.changePassword(req.body.oldPassword, req.body.newPassword)
+            res.status(200).json(updatedUser);
+        } catch(error) {
+            next(error)
+        }
+    }
 }
