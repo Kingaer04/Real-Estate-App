@@ -58,15 +58,18 @@ export const userController = {
             const user = await User.findOne({ email });
             if (user) {
                 req.login(user, (err) => {
-                    const token = jwt.sign({id: user.id}, process.env.JWT_SECRET, {httpOnly: true})
-                    const{hash: has, salt: sal, ...rest} = user._doc
-                    res.cookie('token', token, {httpOnly: true}).status(200).json(rest)
+                    if (err) {
+                        return res.status(500).json({ message: 'Internal Server Error', error: err.message });
+                    }
+                    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
+                    const { hash, salt, ...rest } = user._doc;
+                    res.cookie('token', token, {httpOnly: true }).status(200).json(rest);
                 });
             } else {
                 if (req.skip) return next();
                 const randomPassword = Math.random().toString(36).slice(-8);
-                const randomUserName = req.body.name.split(" ").join("").toLowerCase() + Math.random().toString(36).slice(-4)
-                const newUser = new User({userName: randomUserName, email: email, avatar: req.body.photo});
+                const randomUserName = req.body.name.split(" ").join("").toLowerCase() + Math.random().toString(36).slice(-4);
+                const newUser = new User({ userName: randomUserName, email: email, avatar: req.body.photo });
                 User.register(newUser, randomPassword, (error, user) => {
                     if (user) {
                         res.status(201).json({
@@ -99,13 +102,55 @@ export const userController = {
         })
     },
     update: async (req, res, next) => {
-        if(req.user.id !== req.params.id) return (res.status(401).json({message: `Unauthorized! you can only update your account${req.user.id}`}))
+    try {
+        if (req.user.id !== req.params.id) return res.status(401).json({ error: 'Unauthorized! you can only update your account' });
+
+        const updatedUser = await User.findByIdAndUpdate(req.user.id, {
+            $set: getUserParams(req.body)
+        }, { new: true })
+
+        // Check if both old and new passwords are provided
+        if (req.body.oldPassword && req.body.newPassword) {
+            try {
+                await updatedUser.changePassword(req.body.oldPassword, req.body.newPassword);
+            } catch (error) {
+                return res.status(400).json({ error: error.message });
+            }
+        } else if (req.body.oldPassword || req.body.newPassword) {
+            return res.status(400).json({ error: 'Both old and new passwords must be provided.' });
+        }
+        updatedUser.changePassword = async function(oldPassword, newPassword) {
+            // Check if the old password matches the one in the database
+            const isMatch = await this.comparePassword(oldPassword);
+            if (!isMatch) {
+                throw new Error('Old password is incorrect');
+            }
+        
+            // Update the password
+            this.password = newPassword;
+            await this.save();
+        }
+
+        res.status(200).json(updatedUser);
+        } catch (error) {
+        next(error);
+        }
+    },
+    delete: async (req, res, next) => {
+        if(req.user.id !== req.params.id) return (res.status(401).json({message: 'Unauthorized! You can only delete your account'}))
+        try{
+            await User.findByIdAndDelete(req.params.id)
+            res.clearCookie('token')
+            res.status(200).json("User Account deleted successfully!")
+        }catch(error){
+            next(error)
+        }
+    },
+    signOut: async (req, res, next) => {
         try {
-            const updatedUser = await User.findByIdAndUpdate(req.user.id, 
-                {$set: getUserParams(req.body)}, { new: true });
-            await updatedUser.changePassword(req.body.oldPassword, req.body.newPassword)
-            res.status(200).json(updatedUser);
-        } catch(error) {
+            res.clearCookie('token')
+            res.status(200).json("User has logged out!")
+        } catch (error) {
             next(error)
         }
     }
